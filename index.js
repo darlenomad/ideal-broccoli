@@ -40,6 +40,34 @@ app.get('/leads', async (req, res) => {
   res.json(result.rows);
 });
 
+// временная «читалка» аккаунта Amo — показывает менеджеров, воронки и этапы с их ID
+app.get('/amo-info', async (req, res) => {
+  const base = 'https://' + process.env.AMO_DOMAIN + '/api/v4';
+  const headers = { Authorization: 'Bearer ' + process.env.AMO_TOKEN };
+  try {
+    const usersResp = await fetch(base + '/users', { headers });
+    const users = await usersResp.json();
+
+    const pipeResp = await fetch(base + '/leads/pipelines', { headers });
+    const pipelines = await pipeResp.json();
+
+    // упрощаем вывод, чтобы было читаемо
+    const managers = (users._embedded?.users || []).map(u => ({
+      id: u.id, name: u.name, email: u.email
+    }));
+
+    const funnels = (pipelines._embedded?.pipelines || []).map(p => ({
+      pipeline_id: p.id,
+      pipeline_name: p.name,
+      statuses: (p._embedded?.statuses || []).map(s => ({ status_id: s.id, status_name: s.name }))
+    }));
+
+    res.json({ managers, funnels });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 init()
   .then(() => app.listen(PORT, () => console.log('Сервер запущен на порту ' + PORT)))
